@@ -26,11 +26,11 @@ namespace WDAC_Wizard
 
         // Delimitted value ',' will be replaced with #C#
         const string DEL_VALUE = "#C#";
-        const int TIMESMP_LNG = 22; 
+        const int TIMESMP_LNG = 22;
 
         // Errors
         const string NORECORDS_EXC = "No Advanced Hunting Records parsed";
-        const string HEADERRECORDS_EXC = @"Advanced Hunting Records are not properly formatted. 
+        const string HEADERRECORDS_EXC = @"Advanced Hunting Records are not properly formatted.
                                          The Wizard could not find critical data columns.";
         const string BAD_SIG_PUBNAME = "Unknown";
 
@@ -44,7 +44,7 @@ namespace WDAC_Wizard
         /// <param name="filepath"></param>
         public static List<CiEvent> ReadAdvancedHuntingCsvFiles(List<string> filepaths)
         {
-            List<CiEvent> ciEvents = new List<CiEvent>(); 
+            List<CiEvent> ciEvents = new List<CiEvent>();
 
             // Parse each CSV File provided by the user
             foreach (var filepath in filepaths)
@@ -99,8 +99,8 @@ namespace WDAC_Wizard
                 record = record.Replace(@"""", "\"");   // double quotes
             }
 
-            Console.WriteLine(record);  
-            return record; 
+            Console.WriteLine(record);
+            return record;
         }
 
         /// <summary>
@@ -125,16 +125,16 @@ namespace WDAC_Wizard
                         continue;
 
                     // Exclude the cases where the split leaves a single comma
-                    // This can cause issues parsing 
+                    // This can cause issues parsing
                     if (String.IsNullOrEmpty(sString) || sString.Length == 1)
-                        continue; 
+                        continue;
 
                     sString = sString.Replace(",", DEL_VALUE);
                     sString = sString.Replace("\"", "");
-                    fields[i] = sString; 
+                    fields[i] = sString;
                 }
 
-                return string.Join("", fields); 
+                return string.Join("", fields);
             }
             else
             {
@@ -152,14 +152,14 @@ namespace WDAC_Wizard
             // Try to first parse the timestamp to UTC time, if unsuccessful, fallback to list of MDETimestampFormats
             if(String.IsNullOrEmpty(record.Timestamp))
             {
-                return record; 
+                return record;
             }
 
             string recordTimestamp = record.Timestamp; // tmp var to manipulate
-            
-            if(DateTime.TryParseExact(recordTimestamp, "o", 
-                                      CultureInfo.InvariantCulture, 
-                                      DateTimeStyles.AssumeUniversal, 
+
+            if(DateTime.TryParseExact(recordTimestamp, "o",
+                                      CultureInfo.InvariantCulture,
+                                      DateTimeStyles.AssumeUniversal,
                                       out _))
             {
                 return record; // return record, timestamp is already formatted as UTC/ISO 8601
@@ -194,10 +194,10 @@ namespace WDAC_Wizard
 
                     // Set timestamp to arbitrary datetime in case there is a correlation ID
                     // which can be used in the correlate signature events method
-                    return record; 
+                    return record;
                 }
             }
-            
+
             return record;
         }
 
@@ -214,11 +214,11 @@ namespace WDAC_Wizard
             // Tmp variables
             CiEvent ciEvent = new CiEvent();
             SignerEvent signerEvent = new SignerEvent();
-            var record = new AdvancedHuntingRecord(); 
+            var record = new AdvancedHuntingRecord();
 
             foreach (var precleanedRecord in records)
             {
-                record = ConvertTimestampsToUTC(precleanedRecord); 
+                record = ConvertTimestampsToUTC(precleanedRecord);
 
                 switch (record.ActionType)
                 {
@@ -247,18 +247,18 @@ namespace WDAC_Wizard
                         continue;
 
                     default:
-                        continue; 
+                        continue;
                 }
 
                 // De-duplicate audit and block events
-                if (!IsDuplicateEvent(ciEvent, ciEvents)) 
+                if (!IsDuplicateEvent(ciEvent, ciEvents))
                 {
                     ciEvents.Add(ciEvent);
-                    ciEvent = new CiEvent(); 
+                    ciEvent = new CiEvent();
                 }
             }
 
-            return CorrelateSigningEvents(ciEvents, signerEvents); 
+            return CorrelateSigningEvents(ciEvents, signerEvents);
         }
 
         /// <summary>
@@ -271,7 +271,7 @@ namespace WDAC_Wizard
             CiEvent ciEvent = new CiEvent();
             ciEvent.EventId = DRIVER_REV_EVENT_ID;
             ciEvent.PolicyGUID = record.PolicyId;
-            ciEvent.PolicyName = record.PolicyName; 
+            ciEvent.PolicyName = record.PolicyName;
             ciEvent.FileName = record.FileName;
             // MDE AH FolderPath is the dir path without the filename
             ciEvent.FilePath = Helper.GetDOSPath(record.FolderPath) + "\\" + ciEvent.FileName;
@@ -285,7 +285,7 @@ namespace WDAC_Wizard
             // New MDE AH fields added in May 2024
             ciEvent.OriginalFilename = record.OriginalFileName;
             ciEvent.ProductName = record.ProductName;
-            ciEvent.InternalFilename = record.InternalName; 
+            ciEvent.InternalFilename = record.InternalName;
             ciEvent.FileVersion = record.FileVersion;
             ciEvent.FileDescription = record.FileDescription;
             ciEvent.CorrelationId = record.EtwCorrelationId;
@@ -361,105 +361,94 @@ namespace WDAC_Wizard
         private static SignerEvent Create3089Event(AdvancedHuntingRecord record)
         {
             SignerEvent signerEvent = new SignerEvent();
-            signerEvent.EventId = SIGNING_EVENT_ID; 
+            signerEvent.EventId = SIGNING_EVENT_ID;
             signerEvent.IssuerName = record.IssuerName;
             signerEvent.IssuerTBSHash = Helper.ConvertHashStringToByte(record.IssuerTBSHash);
             signerEvent.PublisherName = record.PublisherName;
             signerEvent.DeviceId = record.DeviceId;
             signerEvent.Timestamp = record.Timestamp;
-            signerEvent.CorrelationId = record.EtwCorrelationId; 
+            signerEvent.CorrelationId = record.EtwCorrelationId;
 
             // Replace Delimitted values, if applicable
-            // E.g. Zoom Communications#C# Inc --> Zoom Communications, Inc 
-            // if (signerEvent.IssuerName.Contains(DEL_VALUE))
-            // {
-            //     signerEvent.IssuerName = signerEvent.IssuerName.Replace(DEL_VALUE, ",");
-            // }
-            // 
-            // if (signerEvent.PublisherName.Contains(DEL_VALUE))
-            // {
-            //     signerEvent.PublisherName = signerEvent.PublisherName.Replace(DEL_VALUE, ",");
-            // }
+            E.g. Zoom Communications#C# Inc --> Zoom Communications, Inc
+            if (signerEvent.IssuerName.Contains(DEL_VALUE))
+            {
+                signerEvent.IssuerName = signerEvent.IssuerName.Replace(DEL_VALUE, ",");
+            }
+
+            if (signerEvent.PublisherName.Contains(DEL_VALUE))
+            {
+                signerEvent.PublisherName = signerEvent.PublisherName.Replace(DEL_VALUE, ",");
+            }
 
             return signerEvent;
         }
 
         /// <summary>
-        /// Correlate the Ci and Signer events
+        /// Correlate the Ci and Signer events.
         /// </summary>
         /// <param name="ciEvents"></param>
         /// <param name="signerEvents"></param>
         /// <returns></returns>
         private static List<CiEvent> CorrelateSigningEvents(List<CiEvent> ciEvents, List<SignerEvent> signerEvents)
         {
-            // AH events now support the correlation ID. To be backwards compatible, the Wizard will try to correlate signing events by
-            // timestamp and correlation ID (if applicable)
+            List<CiEvent> correlatedCiEvents = new List<CiEvent>();
 
-            // Correlated signer and ci events appear to share the same timestamp to the 23rd-24th position.
-            // Timestamp	DeviceId	DeviceName	ActionType	FileName
-            // 2023-01-09T21:49:44.19[89403Z]    6777cf8827f32a6492a16eda60c3e02d80a697d5 liftoffdemo11   AppControlCodeIntegrityPolicyAudited GoogleUpdate.exe
-            // 2023-01-09T21:49:44.19[89495Z]    6777cf8827f32a6492a16eda60c3e02d80a697d5 liftoffdemo11   AppControlCodeIntegritySigningInformation
-            // 2023-01-09T21:49:44.19[89539Z]    6777cf8827f32a6492a16eda60c3e02d80a697d5 liftoffdemo11   AppControlCodeIntegritySigningInformation
-
-            List<CiEvent> correlatedCiEvents = new List<CiEvent>(); 
-
-            foreach(CiEvent ciEvent in ciEvents)
+            foreach (CiEvent ciEvent in ciEvents)
             {
-                // Iterate through all the signingEvents to match on Timestamp[0:23]
-                foreach(SignerEvent signerEvent in signerEvents)
+                bool isCorrelated = false;
+
+                foreach (SignerEvent signerEvent in signerEvents)
                 {
-                    // Primary correlation mechanism, as of new AH events, use the correlation ID
-                    if(!String.IsNullOrEmpty(signerEvent.CorrelationId) && !String.IsNullOrEmpty(ciEvent.CorrelationId))
+                    // Primary correlation mechanism: Correlation ID
+                    if (!string.IsNullOrEmpty(signerEvent.CorrelationId) && !string.IsNullOrEmpty(ciEvent.CorrelationId))
                     {
-                        if(signerEvent.CorrelationId.Equals(ciEvent.CorrelationId, StringComparison.OrdinalIgnoreCase)
+                        if (signerEvent.CorrelationId.Equals(ciEvent.CorrelationId, StringComparison.OrdinalIgnoreCase)
                             && IsValidSigner(signerEvent))
                         {
-                            // If first/only signer, set the SignerInfo attribute to signer
-                            // otherwise, duplicate ciEvent and append to ciEvents
-                            if (ciEvent.SignerInfo.DeviceId == null)
-                            {
-                                ciEvent.SignerInfo = signerEvent;
-                                correlatedCiEvents.Add(ciEvent);
-                            }
-                            else
-                            {
-                                CiEvent ciEventCopy = ciEvent.Clone();
-                                ciEventCopy.SignerInfo = signerEvent;
-                                correlatedCiEvents.Add(ciEventCopy);
-                            }
+                            AddSignerToCiEvent(ciEvent, signerEvent, correlatedCiEvents);
+                            isCorrelated = true;
                         }
                     }
-
-                    // Fallback, use the timestamp fields to correlate
-                    // If there is a DeviceId and timestamp match - correlated events
-                    else if(signerEvent.DeviceId == ciEvent.DeviceId
-                        && DoTimestampsMatch(signerEvent.Timestamp, ciEvent.Timestamp)
-                        && IsValidSigner(signerEvent))
+                    // Fallback: Timestamp-based correlation
+                    else if (signerEvent.DeviceId == ciEvent.DeviceId
+                             && DoTimestampsMatch(signerEvent.Timestamp, ciEvent.Timestamp)
+                             && IsValidSigner(signerEvent))
                     {
-                        // If first/only signer, set the SignerInfo attribute to signer
-                        // otherwise, duplicate ciEvent and append to ciEvents
-                        if (ciEvent.SignerInfo.DeviceId == null)
-                        {
-                            ciEvent.SignerInfo = signerEvent;
-                            correlatedCiEvents.Add(ciEvent);
-                        }
-                        else
-                        {
-                            CiEvent ciEventCopy = ciEvent.Clone();
-                            ciEventCopy.SignerInfo = signerEvent;
-                            correlatedCiEvents.Add(ciEventCopy);
-                        }
+                        AddSignerToCiEvent(ciEvent, signerEvent, correlatedCiEvents);
+                        isCorrelated = true;
                     }
                 }
 
-                // In the case where the file is unsigned
-                if (ciEvent.SignerInfo.DeviceId == null)
+                // Handle unsigned files
+                if (!isCorrelated)
                 {
                     correlatedCiEvents.Add(ciEvent);
                 }
             }
 
-            return correlatedCiEvents; 
+            return correlatedCiEvents;
+        }
+
+        /// <summary>
+        /// Adds a SignerEvent to a CiEvent, handling duplicates.
+        /// </summary>
+        /// <param name="ciEvent"></param>
+        /// <param name="signerEvent"></param>
+        /// <param name="correlatedCiEvents"></param>
+        private static void AddSignerToCiEvent(CiEvent ciEvent, SignerEvent signerEvent, List<CiEvent> correlatedCiEvents)
+        {
+            if (ciEvent.SignerInfo.DeviceId == null)
+            {
+                ciEvent.SignerInfo = signerEvent;
+                correlatedCiEvents.Add(ciEvent);
+            }
+            else
+            {
+                CiEvent ciEventCopy = ciEvent.Clone();
+                ciEventCopy.SignerInfo = signerEvent;
+                correlatedCiEvents.Add(ciEventCopy);
+            }
         }
 
         /// <summary>
@@ -479,14 +468,26 @@ namespace WDAC_Wizard
         }
 
         /// <summary>
-        /// 
+        /// Checks if the SignerEvent is valid based on its PublisherName and IssuerName.
         /// </summary>
+        /// <param name="signerEvent"></param>
         /// <returns></returns>
         private static bool IsValidSigner(SignerEvent signerEvent)
         {
-            if (signerEvent.PublisherName == BAD_SIG_PUBNAME
-                && signerEvent.IssuerName == BAD_SIG_PUBNAME)
+            // Log the PublisherName and IssuerName for debugging
+            Console.WriteLine($"Validating Signer: PublisherName={signerEvent.PublisherName}, IssuerName={signerEvent.IssuerName}");
+
+            // Ensure PublisherName and IssuerName are not null or empty
+            if (string.IsNullOrEmpty(signerEvent.PublisherName) || string.IsNullOrEmpty(signerEvent.IssuerName))
             {
+                Console.WriteLine("Invalid Signer: Missing PublisherName or IssuerName.");
+                return false;
+            }
+
+            // Check against BAD_SIG_PUBNAME
+            if (signerEvent.PublisherName == BAD_SIG_PUBNAME && signerEvent.IssuerName == BAD_SIG_PUBNAME)
+            {
+                Console.WriteLine("Invalid Signer: Matches BAD_SIG_PUBNAME.");
                 return false;
             }
 
@@ -499,7 +500,7 @@ namespace WDAC_Wizard
         /// <returns></returns>
         public static string GetLastError()
         {
-            return LastError; 
+            return LastError;
         }
 
         /// <summary>
@@ -556,8 +557,8 @@ namespace WDAC_Wizard
                     var record = new AdvancedHuntingRecord
                     {
                         // Check for Timestamp or Timestamp Local time which occurs when MDE users has updated time preferences from Local to UTC
-                        Timestamp = csv.HeaderRecord.Contains("Timestamp") ? csv.GetField<string>("Timestamp") : 
-                                    csv.HeaderRecord.Contains("Timestamp Local time") ? csv.GetField<string>("Timestamp Local time") : null, 
+                        Timestamp = csv.HeaderRecord.Contains("Timestamp") ? csv.GetField<string>("Timestamp") :
+                                    csv.HeaderRecord.Contains("Timestamp Local time") ? csv.GetField<string>("Timestamp Local time") : null,
                         DeviceId = csv.HeaderRecord.Contains("DeviceId") ? csv.GetField<string>("DeviceId") : null,
                         DeviceName = csv.HeaderRecord.Contains("DeviceName") ? csv.GetField<string>("DeviceName") : null,
                         ActionType = csv.HeaderRecord.Contains("ActionType") ? csv.GetField<string>("ActionType") : null,
@@ -585,7 +586,7 @@ namespace WDAC_Wizard
             return records;
         }
         /// <summary>
-        /// CSV row Record class. Each of the row names map to the variable names below in this order. 
+        /// CSV row Record class. Each of the row names map to the variable names below in this order.
         /// </summary>
         public class AdvancedHuntingRecord
         {
@@ -609,7 +610,7 @@ namespace WDAC_Wizard
             public string InternalName;
             public string FileDescription;
             public string FileVersion;
-            public string EtwCorrelationId; 
+            public string EtwCorrelationId;
         }
 
         // AH KQL Query must follow:
