@@ -370,7 +370,7 @@ namespace WDAC_Wizard
             signerEvent.CorrelationId = record.EtwCorrelationId;
 
             // Replace Delimitted values, if applicable
-            E.g. Zoom Communications#C# Inc --> Zoom Communications, Inc
+            
             if (signerEvent.IssuerName.Contains(DEL_VALUE))
             {
                 signerEvent.IssuerName = signerEvent.IssuerName.Replace(DEL_VALUE, ",");
